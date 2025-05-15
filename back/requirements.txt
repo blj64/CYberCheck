@@ -1,0 +1,15 @@
+# FILE: back/requirements.txt
+fastapi
+uvicorn
+python-dotenv
+pydantic-settings
+asyncpg
+sqlalchemy
+redis
+celery[redis]
+celery[beat]
+alembic
+psycopg2-binary
+httpx
+asgiref
+ping3

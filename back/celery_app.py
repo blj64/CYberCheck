@@ -9,6 +9,9 @@ from ping3 import ping
 from urllib.parse import urlparse
 from crud import save_website_check_result
 from sqlalchemy.orm import sessionmaker
+import asyncio
+from fastapi.websockets import WebSocket
+from websocket_manager import manager  # Import the manager from websocket_manager.py
 
 
 celery_app = Celery(
@@ -59,11 +62,22 @@ def check_website_status(website_id: int, url: str):
 
         session.add(result_data)
         session.commit()
+
+        # Broadcast the new log to WebSocket clients
+        asyncio.run(broadcast_update(website_id, {
+            "website_id": website_id,
+            "status_code": status_code,
+            "ping": int(ping_ms * 1000) if ping_ms else None,
+            "checked_at": datetime.utcnow().isoformat(),
+        }))
     except Exception as e:
         print(f"[ERROR] Could not check {url}: {e}")
         session.rollback()
     finally:
         session.close()
+
+async def broadcast_update(website_id: int, data: dict):
+    await manager.broadcast(data)  # Use the manager from websocket_manager.py
 
 @celery_app.task
 def schedule_website_checks():

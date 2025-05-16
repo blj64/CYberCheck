@@ -31,6 +31,8 @@
             <strong>{{ result.checked_at }}:</strong> Status Code: {{ result.status_code }}, Ping: {{ result.ping }}ms
           </li>
         </ul>
+        <PingChart :results="selectedWebsite.recent_check_results" />
+        <ResponseTimeChart :results="selectedWebsite.recent_check_results" />
       </div>
     </div>
     <div v-else>
@@ -41,6 +43,8 @@
 
 <script setup>
 import { ref } from 'vue'
+import PingChart from './PingChart.vue'
+import ResponseTimeChart from './ResponseTimeChart.vue'
 import { addWebsite } from '../store/websites.js'
 
 defineProps({

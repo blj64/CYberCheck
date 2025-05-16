@@ -2,9 +2,10 @@
   <aside class="left-panel">
     <p>Left Panel</p>
     <button class="add-button" @click="toggleForm">Add Website</button>
-    <div v-for="website in store.state.websites" :key="website.id">
+    <div v-for="website in websites" :key="website.id">
       <button
         class="website-button"
+        :class="website.status"
         @click="$emit('select-website', website.id); console.log('Selected website ID:', website.id)"
       >
         {{ website.name }}
@@ -15,13 +16,12 @@
 
 <script setup>
 import { onMounted, inject } from 'vue'
-import { useWebsiteStore } from '../store/websites.js'
+import { websites, fetchWebsites } from '../store/websites.js'
 
-const store = useWebsiteStore()
 const toggleForm = inject('toggleForm') // Inject the toggleForm function
 
 onMounted(() => {
-  store.fetchWebsites() // Fetch websites when the component is mounted
+  fetchWebsites() // Fetch websites when the component is mounted
 })
 </script>
 
@@ -33,20 +33,36 @@ onMounted(() => {
   height: 100%;
 }
 
-.website-button {
-  background-color: white;
-  color: #2196F3;
-  border: none;
-  padding: 5px 10px;
-  margin: 5px 0;
-  cursor: pointer;
-  border-radius: 4px;
+.website-button.up {
+  background-color: #e8f5e9; /* vert clair */
+  color: #2e7d32;            /* vert foncé */
 }
 
-.website-button:hover {
-  background-color: #1976D2;
-  color: white;
+.website-button.up:hover {
+  background-color: #c8e6c9;
+  color: #1b5e20;
 }
+
+.website-button.down {
+  background-color: #ffebee; /* rouge clair */
+  color: #c62828;            /* rouge foncé */
+}
+
+.website-button.down:hover {
+  background-color: #ffcdd2;
+  color: #b71c1c;
+}
+
+.website-button.unknown {
+  background-color: #fffde7; /* jaune clair */
+  color: #f9a825;            /* jaune foncé */
+}
+
+.website-button.unknown:hover {
+  background-color: #fff59d;
+  color: #f57f17;
+}
+
 
 .add-button {
   background-color: #4CAF50;

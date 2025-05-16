@@ -32,78 +32,72 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@celery_app.task
-def check_website_status(website_id: int, url: str):
+def check_site_logic(db, website_id: int, url: str):
     from datetime import datetime
     from urllib.parse import urlparse
     import httpx
     from ping3 import ping
 
-    session = SessionLocal()
+    response = httpx.get(url, timeout=10, follow_redirects=True)
+    status_code = response.status_code
+    hostname = urlparse(url).hostname
+    ping_ms = None
+    if hostname:
+        ping_ms = ping(hostname, timeout=3)
 
+    result_data = WebsiteCheckResult(
+        website_id=website_id,
+        status_code=status_code,
+        speed_bps=len(response.content),
+        ping=int(ping_ms * 1000) if ping_ms else None,
+        cert_expire=None,
+        cert_expired=None,
+        cert_error=None,
+        checked_at=datetime.utcnow(),
+    )
+
+    db.add(result_data)
+    db.commit()
+
+    return {
+        "website_id": website_id,
+        "status_code": status_code,
+        "ping": int(ping_ms * 1000) if ping_ms else None,
+        "checked_at": datetime.utcnow().isoformat(),
+    }
+
+@celery_app.task
+def check_website_status(website_id: int, url: str):
+    db = SessionLocal()
     try:
-        response = httpx.get(url, timeout=10, follow_redirects=True)
-        status_code = response.status_code
-        hostname = urlparse(url).hostname
-        ping_ms = None
-        if hostname:
-            ping_ms = ping(hostname, timeout=3)
-
-        result_data = WebsiteCheckResult(
-            website_id=website_id,
-            status_code=status_code,
-            speed_bps=len(response.content),
-            ping=int(ping_ms * 1000) if ping_ms else None,
-            cert_expire=None,
-            cert_expired=None,
-            cert_error=None,
-            checked_at=datetime.utcnow(),
-        )
-
-        session.add(result_data)
-        session.commit()
-
+        result = check_site_logic(db, website_id, url)
         # Broadcast the new log to WebSocket clients
-        asyncio.run(broadcast_update(website_id, {
-            "website_id": website_id,
-            "status_code": status_code,
-            "ping": int(ping_ms * 1000) if ping_ms else None,
-            "checked_at": datetime.utcnow().isoformat(),
-        }))
+        asyncio.run(broadcast_update(website_id, result))
     except Exception as e:
         print(f"[ERROR] Could not check {url}: {e}")
-        session.rollback()
+        db.rollback()
     finally:
-        session.close()
+        db.close()
 
 async def broadcast_update(website_id: int, data: dict):
     await manager.broadcast(data)  # Use the manager from websocket_manager.py
 
 @celery_app.task
 def schedule_website_checks():
-    from sqlalchemy.future import select
-    import asyncio
+    db = SessionLocal()
+    try:
+        websites = db.query(Website).all()
+        if not websites:
+            print("No websites found to check.")
+            return
 
-    async def fetch_websites():
-        try:
-            async with async_session() as session:
-                result = await session.execute(select(Website))
-                websites = result.scalars().all()
-                if not websites:
-                    print("No websites found to check.")
-                    return {"message": "No websites found"}
-                scheduled_websites = []
-                for website in websites:
-                    print(f"Scheduling check for website: {website.url}")
-                    check_website_status.delay(website.id, website.url)
-                    scheduled_websites.append(website.url)
-                print(f"Scheduled checks for websites: {scheduled_websites}")
-                return {"scheduled_websites": scheduled_websites}
-        except Exception as e:
-            print(f"Error scheduling website checks: {e}")
-            raise e
-
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(fetch_websites())
+        for website in websites:
+            print(f"Scheduling check for website: {website.url}")
+            check_website_status.delay(website.id, website.url)
+    except Exception as e:
+        print(f"Error scheduling website checks: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 

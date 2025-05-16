@@ -48,5 +48,16 @@ services:
     depends_on:
       - redis
 
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: vue-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front:/app
+    command: npm run dev
+
 volumes:
   postgres_data:

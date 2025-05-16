@@ -2,8 +2,8 @@
     <div class="dashboard">
       <Header />
       <div class="main-layout">
-        <LeftPanel class="left" @select-website="fetchWebsiteDetails" />
-        <RightPanel class="right" :selected-website="selectedWebsite" />
+        <LeftPanel class="left" @select-website="fetchWebsiteDetailsHandler" />
+        <RightPanel class="right" :selected-website="selectedWebsite" :show-form="showForm" />
       </div>
     </div>
   </template>
@@ -13,9 +13,8 @@
   import Header from '../components/Header.vue'
   import LeftPanel from '../components/LeftPanel.vue'
   import RightPanel from '../components/RightPanel.vue'
-  import { useWebsiteStore } from '../store/websites.js'
+  import { fetchWebsiteDetails } from '../store/websites.js' // Import the correct function
 
-  const store = useWebsiteStore()
   const showForm = ref(false) // Shared state for showing the form
   const selectedWebsite = ref(null) // State for the selected website
 
@@ -23,10 +22,11 @@
     showForm.value = !showForm.value
   }
 
-  async function fetchWebsiteDetails(id) {
+  async function fetchWebsiteDetailsHandler(id) {
     console.log(`Fetching details for website ID: ${id}`) // Debug log
     try {
-      selectedWebsite.value = await store.fetchWebsiteDetails(id) // Update selected website
+      showForm.value = false // Hide the form when selecting a website
+      selectedWebsite.value = await fetchWebsiteDetails(id) // Update selected website
       console.log('Website details fetched:', selectedWebsite.value) // Log the fetched details
     } catch (error) {
       console.error('Error fetching website details:', error) // Log any errors

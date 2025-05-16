@@ -1,7 +1,16 @@
 <template>
   <aside class="right-panel">
     <p>Right Panel</p>
-    <div v-if="selectedWebsite">
+    <div v-if="showForm">
+      <h2>Add a New Website</h2>
+      <form @submit.prevent="addWebsiteHandler">
+        <input v-model="newWebsite.name" placeholder="Website Name" required />
+        <input v-model="newWebsite.url" placeholder="Website URL" required />
+        <input v-model.number="newWebsite.interval" placeholder="Check Interval (minutes)" required />
+        <button type="submit" class="add-button">Submit</button>
+      </form>
+    </div>
+    <div v-else-if="selectedWebsite">
       <h2>{{ selectedWebsite.website.name }}</h2>
       <p>{{ selectedWebsite.website.url }}</p>
       <div v-if="selectedWebsite.latest_check_result">
@@ -15,6 +24,14 @@
       <div v-else>
         <p>No check results available for this website.</p>
       </div>
+      <div v-if="selectedWebsite.recent_check_results && selectedWebsite.recent_check_results.length">
+        <h3>Recent Check Results:</h3>
+        <ul>
+          <li v-for="result in selectedWebsite.recent_check_results" :key="result.checked_at">
+            <strong>{{ result.checked_at }}:</strong> Status Code: {{ result.status_code }}, Ping: {{ result.ping }}ms
+          </li>
+        </ul>
+      </div>
     </div>
     <div v-else>
       <p>Select a website to view its details.</p>
@@ -23,9 +40,27 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import { addWebsite } from '../store/websites.js'
+
 defineProps({
-  selectedWebsite: Object, // Ensure this matches the prop name in Dashboard.vue
+  selectedWebsite: Object,
+  showForm: Boolean, // New prop to control form visibility
 })
+
+const newWebsite = ref({ name: '', url: '', interval: 5 }) // Default interval value
+
+async function addWebsiteHandler() {
+  try {
+    console.log('Adding website:', newWebsite.value)
+    await addWebsite(newWebsite.value) // Call the function to add the website
+    newWebsite.value = { name: '', url: '', interval: 5 } // Reset the form
+    alert('Website added successfully!')
+  } catch (error) {
+    console.error('Error adding website:', error)
+    alert('Failed to add website.')
+  }
+}
 </script>
 
 <style scoped>

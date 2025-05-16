@@ -79,10 +79,16 @@ async def list_websites(session: AsyncSession = Depends(get_db)):
     return websites
 
 @app.get("/websites/{website_id}/details")
-async def get_website_details(website_id: int, session: AsyncSession = Depends(get_db)):
+async def get_website_details(
+    website_id: int, 
+    session: AsyncSession = Depends(get_db), 
+    limit: int = 10, 
+    delay_minutes: int = 1
+):
     from sqlalchemy.future import select
     from sqlalchemy.orm import joinedload
     from models import Website, WebsiteCheckResult
+    from datetime import timedelta
 
     website = await session.get(Website, website_id)
     if not website:
@@ -92,14 +98,23 @@ async def get_website_details(website_id: int, session: AsyncSession = Depends(g
     result = await session.execute(
         select(WebsiteCheckResult)
         .where(WebsiteCheckResult.website_id == website_id)
-        .order_by(WebsiteCheckResult.checked_at.desc())  # Order by the most recent
-        .limit(1)  # Fetch only the latest log
+        .order_by(WebsiteCheckResult.checked_at.desc())
+        .limit(limit)
     )
-    latest_check_result = result.scalar()
+    check_results = result.scalars().all()
+
+    # Filter results based on the delay
+    filtered_results = []
+    last_checked_at = None
+    for check in check_results:
+        if not last_checked_at or (check.checked_at <= last_checked_at - timedelta(minutes=delay_minutes)):
+            filtered_results.append(check)
+            last_checked_at = check.checked_at
 
     return {
         "website": website,
-        "latest_check_result": latest_check_result,
+        "latest_check_result": check_results[0] if check_results else None,
+        "recent_check_results": filtered_results,
     }
 
 @app.delete("/websites/{website_id}")

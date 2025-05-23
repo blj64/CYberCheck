@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Site Monitoring</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-bottom: 10px; }
+    .entry { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+    .ok { color: green; }
+    .fail { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Résultats des vérifications en direct 🔄</h2>
+  <div id="results"></div>
+
+  <script>
+    const resultsDiv = document.getElementById("results");
+    const socket = new WebSocket("ws://localhost:8000/ws");
+
+    socket.onmessage = (e) => {
+      console.log("Reçu du WS :", event.data);
+  const d = JSON.parse(e.data);
+  const div = document.createElement("div");
+  div.className = "entry";
+
+  div.innerHTML = `
+    <strong>Site ID:</strong> ${d.site_id}<br>
+    <strong>HTTP:</strong> ${d.status_code ?? "–"} / ${d.response_time_ms ?? "–"} ms<br>
+    <strong>Ping:</strong> ${d.ping_ms ?? "–"} ms<br>
+    <strong>Cert expire:</strong> ${d.cert_expires_at ?? "–"}<br>
+    ${d.error_message ? `<strong>Erreurs:</strong> ${d.error_message}<br>` : ""}
+    <em>${new Date().toLocaleTimeString()}</em>
+  `;
+  results.prepend(div);
+};
+
+    socket.onopen = () => {
+      console.log("Connecté au WebSocket ✅");
+    };
+
+    socket.onerror = (err) => {
+      console.error("Erreur WebSocket ❌", err);
+    };
+  </script>
+</body>
+</html>
